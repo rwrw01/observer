@@ -109,7 +109,7 @@ ${gqlSection}
   <div class="card-header">Endpoint patronen</div>
   <table>
     <thead><tr>
-      <th>Patroon</th><th>Methoden</th><th>CRUD</th><th>Requests</th><th>Gem. tijd</th><th>Fouten</th><th>Type</th>
+      <th scope="col">Patroon</th><th scope="col">Methoden</th><th scope="col">CRUD</th><th scope="col">Requests</th><th scope="col">Gem. tijd</th><th scope="col">Fouten</th><th scope="col">Type</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>

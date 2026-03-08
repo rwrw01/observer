@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 
 import {
@@ -22,7 +23,7 @@ import { importHarFile } from './har-importer.js';
 import { analyzeRequests, toEndpointRecords } from './pattern-analyzer.js';
 import { generateOpenApiSpec } from './openapi-generator.js';
 import { startExtraction, stopExtraction, getExtractionProgress } from './data-extractor.js';
-import { sessionConfigSchema } from './validation.js';
+import { sessionConfigSchema, harImportSchema, extractConfigSchema } from './validation.js';
 import type { RequestEvent, WsMessage } from './types.js';
 
 interface RouteContext {
@@ -91,8 +92,15 @@ export function createApiRouter(ctx: RouteContext) {
     }
 
     if (path === '/api/import-har' && method === 'POST') {
-      const body = JSON.parse(await ctx.readBody(req)) as Record<string, unknown>;
-      const result = importHarFile(ctx.db, body.filePath as string, body.name as string | undefined, (body.apiFilter as string) ?? '/api/');
+      const body = JSON.parse(await ctx.readBody(req));
+      const config = harImportSchema.parse(body);
+      // H-1 fix: resolve path and verify it doesn't traverse outside cwd
+      const resolvedPath = resolve(config.filePath);
+      if (resolvedPath.includes('..') || resolvedPath.includes('\0')) {
+        ctx.sendError(res, 400, 'Invalid file path');
+        return true;
+      }
+      const result = importHarFile(ctx.db, resolvedPath, config.name, config.apiFilter);
       ctx.sendJson(res, 201, result);
       return true;
     }
@@ -113,16 +121,15 @@ export function createApiRouter(ctx: RouteContext) {
     }
 
     if (path === '/api/extract' && method === 'POST') {
-      const body = JSON.parse(await ctx.readBody(req)) as Record<string, unknown>;
-      const result = await startExtraction(ctx.db, {
-        sessionId: body.sessionId as number,
-        endpoints: body.endpoints as string[],
-        baseUrl: body.baseUrl as string,
-        delayMs: (body.delayMs as number) ?? 3000,
-        jitterPercent: (body.jitterPercent as number) ?? 30,
-        maxRequests: (body.maxRequests as number) ?? 1000,
-        maxErrorRate: (body.maxErrorRate as number) ?? 20,
-      });
+      const body = JSON.parse(await ctx.readBody(req));
+      const config = extractConfigSchema.parse(body);
+      // H-2 fix: block requests to private/link-local IPs
+      const targetHost = new URL(config.baseUrl).hostname;
+      if (/^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.|localhost$)/i.test(targetHost)) {
+        ctx.sendError(res, 400, 'Extraction to private/local addresses is not allowed');
+        return true;
+      }
+      const result = await startExtraction(ctx.db, config);
       ctx.sendJson(res, 200, result);
       return true;
     }

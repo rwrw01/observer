@@ -16,15 +16,15 @@ function buildSessionsBody(sessions: Session[]): string {
       <div class="form-row">
         <div class="form-group">
           <label for="sessionName">Naam</label>
-          <input type="text" id="sessionName" placeholder="Mijn observatie" required>
+          <input type="text" id="sessionName" name="sessionName" placeholder="Mijn observatie" required>
         </div>
         <div class="form-group">
           <label for="targetUrl">Doel-URL</label>
-          <input type="url" id="targetUrl" placeholder="https://example.com" required>
+          <input type="url" id="targetUrl" name="targetUrl" placeholder="https://example.com" autocomplete="url" required>
         </div>
         <div class="form-group">
           <label for="apiFilter">API filter</label>
-          <input type="text" id="apiFilter" value="/api/" placeholder="/api/">
+          <input type="text" id="apiFilter" name="apiFilter" value="/api/" placeholder="/api/">
         </div>
       </div>
       <div class="flex gap-8">
@@ -77,11 +77,12 @@ function buildSessionsBody(sessions: Session[]): string {
 }
 
 function renderSessionCard(session: Session): string {
+  // E4 fix: text indicators alongside color for status badges
   const statusBadge = session.status === 'active'
-    ? '<span class="badge badge-active">Actief</span>'
+    ? '<span class="badge badge-active">&#9679; Actief</span>'
     : session.status === 'failed'
-      ? '<span class="badge badge-failed">Mislukt</span>'
-      : '<span class="badge badge-completed">Voltooid</span>';
+      ? '<span class="badge badge-failed">&#9888; Mislukt</span>'
+      : '<span class="badge badge-completed">&#10003; Voltooid</span>';
 
   const source = session.source === 'har' ? ' (HAR import)' : '';
   const started = new Date(session.startedAt).toLocaleString('nl-NL');
@@ -90,7 +91,7 @@ function renderSessionCard(session: Session): string {
     : 'Lopend';
 
   const deleteBtn = session.status !== 'active'
-    ? `<button class="btn-delete" data-session-id="${session.id}" title="Sessie verwijderen" aria-label="Verwijder ${escapeHtml(session.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`
+    ? `<button class="btn-delete" data-session-id="${session.id}" title="Sessie verwijderen" aria-label="Verwijder ${escapeHtml(session.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14" aria-hidden="true" focusable="false"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`
     : '';
 
   return `
@@ -125,10 +126,10 @@ function buildSessionDetailBody(
   requests: Array<{ id: number; method: string; path: string; responseStatus: number | null; durationMs: number | null; timestamp: string }>,
 ): string {
   const statusBadge = session.status === 'active'
-    ? '<span class="badge badge-active">Actief</span>'
+    ? '<span class="badge badge-active">&#9679; Actief</span>'
     : session.status === 'failed'
-      ? '<span class="badge badge-failed">Mislukt</span>'
-      : '<span class="badge badge-completed">Voltooid</span>';
+      ? '<span class="badge badge-failed">&#9888; Mislukt</span>'
+      : '<span class="badge badge-completed">&#10003; Voltooid</span>';
 
   const meta = `
 <div class="card mb-16">
@@ -168,7 +169,7 @@ function buildSessionDetailBody(
 <div class="card">
   <div class="card-header">${requests.length} request${requests.length !== 1 ? 's' : ''}</div>
   <table>
-    <thead><tr><th>Methode</th><th>Pad</th><th>Status</th><th>Duur</th><th>Tijd</th></tr></thead>
+    <thead><tr><th scope="col">Methode</th><th scope="col">Pad</th><th scope="col">Status</th><th scope="col">Duur</th><th scope="col">Tijd</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
 </div>`;

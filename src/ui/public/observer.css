@@ -16,10 +16,12 @@
   --border: #3c3c3c;
   --border-focus: #007acc;
   --text: #cccccc;
-  --text-dim: #888888;
+  /* K1 fix: #a0a0a0 on #252526 = 5.0:1 contrast (was #888888 = 4.3:1) */
+  --text-dim: #a0a0a0;
   --text-bright: #e0e0e0;
-  --accent: #007acc;
-  --accent-hover: #1a8ad4;
+  /* K1 fix: #3794d1 on #252526 = 4.8:1 contrast (was #007acc = 3.4:1) */
+  --accent: #3794d1;
+  --accent-hover: #4ba3dc;
   --success: #4ec9b0;
   --warning: #dcdcaa;
   --error: #f44747;
@@ -33,6 +35,8 @@
   --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --radius: 4px;
   --transition: 150ms ease;
+  /* E3 fix: focus ring style */
+  --focus-ring: 2px solid var(--accent);
 }
 
 html, body {
@@ -42,6 +46,45 @@ html, body {
   color: var(--text);
   background: var(--bg-dark);
   overflow: hidden;
+}
+
+/* K2 fix: skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  position: fixed;
+  left: 8px;
+  top: 8px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+  white-space: nowrap;
 }
 
 /* Layout: activity-bar | sidebar | main */
@@ -81,6 +124,19 @@ body { display: flex; }
 .activity-bar a svg {
   width: 22px;
   height: 22px;
+}
+
+/* E3 fix: focus-visible on all interactive elements */
+.activity-bar a:focus-visible,
+.panel-nav a:focus-visible,
+.session-card:focus-visible,
+.btn:focus-visible,
+.btn-delete:focus-visible,
+.tab:focus-visible,
+.request-row:focus-visible,
+a:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Sidebar panel */
@@ -227,12 +283,14 @@ textarea {
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 13px;
-  outline: none;
   transition: border-color var(--transition);
 }
 
+/* E3 fix: visible focus ring on inputs (replaces outline:none) */
 input:focus, select:focus, textarea:focus {
   border-color: var(--border-focus);
+  outline: var(--focus-ring);
+  outline-offset: -2px;
 }
 
 textarea { font-family: var(--font-mono); resize: vertical; }
@@ -282,7 +340,7 @@ textarea { font-family: var(--font-mono); resize: vertical; }
   cursor: not-allowed;
 }
 
-/* Status badges */
+/* Status badges — E4 fix: text prefix added alongside color */
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -320,7 +378,7 @@ textarea { font-family: var(--font-mono); resize: vertical; }
 .status-4xx { color: var(--warning); }
 .status-5xx { color: var(--error); }
 
-/* Request log */
+/* Request log — K1 fix: aria-live via HTML */
 .request-log {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -338,7 +396,8 @@ textarea { font-family: var(--font-mono); resize: vertical; }
   transition: background var(--transition);
 }
 
-.request-row:hover { background: var(--bg-hover); }
+.request-row:hover,
+.request-row:focus { background: var(--bg-hover); }
 
 .request-time {
   color: var(--text-dim);
@@ -509,7 +568,8 @@ textarea { font-family: var(--font-mono); resize: vertical; }
 }
 
 .tab:hover { color: var(--text); }
-.tab.active { color: var(--text-bright); border-bottom-color: var(--accent); }
+.tab.active,
+.tab[aria-selected="true"] { color: var(--text-bright); border-bottom-color: var(--accent); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -544,7 +604,7 @@ textarea { font-family: var(--font-mono); resize: vertical; }
 .card a { color: var(--accent); text-decoration: none; }
 .card a:hover { text-decoration: underline; }
 
-/* Connection indicator */
+/* Connection indicator — E5 fix: text label updated alongside dot color */
 .connection-indicator {
   display: inline-flex;
   align-items: center;

@@ -112,9 +112,11 @@ export async function extractAndStoreCookies(
 
 /** Get decrypted cookies for a session, formatted as header value */
 export function getCookieHeader(db: Database.Database, sessionId: number, domain: string): string | null {
+  // M-5 fix: escape SQL LIKE wildcards in domain
+  const escapedDomain = domain.replace(/%/g, '\\%').replace(/_/g, '\\_');
   const rows = db.prepare(
-    'SELECT name, value, domain, expires FROM cookies WHERE session_id = ? AND domain LIKE ?'
-  ).all(sessionId, `%${domain}`) as Array<{ name: string; value: string; expires: string | null }>;
+    "SELECT name, value, domain, expires FROM cookies WHERE session_id = ? AND domain LIKE ? ESCAPE '\\'"
+  ).all(sessionId, `%${escapedDomain}`) as Array<{ name: string; value: string; expires: string | null }>;
 
   if (rows.length === 0) return null;
 

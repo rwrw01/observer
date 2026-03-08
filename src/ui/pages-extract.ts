@@ -99,77 +99,11 @@ function buildExtractBody(
   </div>
 </div>
 
-<div class="card" id="extractResults" style="display:none">
+<div class="card" id="extractResults" style="display:none" aria-live="polite">
   <div class="card-header flex-between">
     <span>Resultaten</span>
     <span class="text-dim"><span id="extractProgress">0</span> / <span id="extractTotal">0</span></span>
   </div>
   <div class="request-log" id="extractLog"></div>
-</div>
-
-<script>
-(function() {
-  var form = document.getElementById('extractForm');
-  var startBtn = document.getElementById('startExtractBtn');
-  var stopBtn = document.getElementById('stopExtractBtn');
-  var results = document.getElementById('extractResults');
-  var log = document.getElementById('extractLog');
-  var progressEl = document.getElementById('extractProgress');
-  var totalEl = document.getElementById('extractTotal');
-
-  if (!form) return;
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    var checked = form.querySelectorAll('input[name="endpoint"]:checked');
-    var endpoints = [];
-    checked.forEach(function(cb) { endpoints.push(cb.value); });
-    if (endpoints.length === 0) { alert('Selecteer minstens 1 endpoint'); return; }
-
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    results.style.display = '';
-    log.innerHTML = '';
-    totalEl.textContent = endpoints.length;
-
-    fetch('/api/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: parseInt(form.querySelector('[name=sessionId]').value),
-        baseUrl: form.querySelector('[name=baseUrl]').value,
-        endpoints: endpoints,
-        delayMs: parseInt(document.getElementById('delayMs').value),
-        jitterPercent: parseInt(document.getElementById('jitterPercent').value),
-        maxErrorRate: parseInt(document.getElementById('maxErrorRate').value),
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      progressEl.textContent = data.completed;
-      data.results.forEach(function(r) {
-        var row = document.createElement('div');
-        row.className = 'request-row';
-        row.innerHTML = '<span class="request-time">' + r.durationMs + 'ms</span>' +
-          '<span class="method method-GET">GET</span>' +
-          '<span class="request-path">' + r.endpoint + '</span>' +
-          '<span class="request-status ' + (r.status >= 200 && r.status < 300 ? 'status-2xx' : 'status-5xx') + '">' + r.status + '</span>';
-        log.appendChild(row);
-      });
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    })
-    .catch(function(err) {
-      alert('Fout: ' + err.message);
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    });
-  });
-
-  stopBtn.addEventListener('click', function() {
-    fetch('/api/extract/stop', { method: 'POST' });
-    stopBtn.disabled = true;
-  });
-})();
-</script>`;
+</div>`;
 }

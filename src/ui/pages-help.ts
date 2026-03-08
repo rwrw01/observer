@@ -50,7 +50,7 @@ function buildHelpBody(): string {
 
 <div class="card mb-16">
   <table>
-    <thead><tr><th>Pagina</th><th>Functie</th></tr></thead>
+    <thead><tr><th scope="col">Pagina</th><th scope="col">Functie</th></tr></thead>
     <tbody>
       <tr><td><a href="/">Sessies</a></td><td>Overzicht van alle sessies. Start een nieuwe live sessie of importeer een HAR-bestand.</td></tr>
       <tr><td><a href="/observe">Observeren</a></td><td>Live observatie met browser screencast en request log. Hier start en stop je sessies.</td></tr>
@@ -110,7 +110,7 @@ function buildHelpBody(): string {
 
 <div class="card mb-16">
   <table>
-    <thead><tr><th>Probleem</th><th>Oplossing</th></tr></thead>
+    <thead><tr><th scope="col">Probleem</th><th scope="col">Oplossing</th></tr></thead>
     <tbody>
       <tr><td>Pagina is ongestyled</td><td>Herstart de server: stop met Ctrl+C en start opnieuw met <code>npm run dev</code></td></tr>
       <tr><td>"A browser session is already active"</td><td>Er draait al een sessie. Klik op <strong>Stoppen</strong> of herstart de server.</td></tr>

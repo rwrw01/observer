@@ -132,7 +132,7 @@ export async function startExtraction(
   const domain = new URL(config.baseUrl).hostname;
   const cookieHeader = getCookieHeader(db, config.sessionId, domain);
   const headers: Record<string, string> = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'User-Agent': 'APIObserver/1.0 (automated; +https://github.com/rwrw01/observer)',
     'Accept': 'application/json',
   };
   if (cookieHeader) headers['Cookie'] = cookieHeader;

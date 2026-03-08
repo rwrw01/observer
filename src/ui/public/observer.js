@@ -9,11 +9,16 @@
 
   // Connection indicator
   var dot = document.querySelector('.connection-dot');
+  var connectionLabel = document.getElementById('connectionLabel');
 
   function setConnected(connected) {
     if (dot) {
       dot.classList.toggle('connected', connected);
       dot.title = connected ? 'Verbonden' : 'Niet verbonden';
+    }
+    // E5 fix: update text label alongside color
+    if (connectionLabel) {
+      connectionLabel.textContent = connected ? 'Verbonden' : 'Niet verbonden';
     }
   }
 
@@ -81,6 +86,14 @@
     return 'status-5xx';
   }
 
+  // E4 fix: status text prefix for color-blind users
+  function statusPrefix(code) {
+    if (code >= 200 && code < 300) return '';
+    if (code >= 400 && code < 500) return '\u26A0 '; // warning triangle
+    if (code >= 500) return '\u2716 '; // cross mark
+    return '';
+  }
+
   function appendRequest(data) {
     if (!requestLog) return;
     count++;
@@ -89,20 +102,32 @@
     var row = document.createElement('div');
     row.className = 'request-row';
     row.setAttribute('data-id', data.id || '');
+    // E7 fix: make request rows keyboard-accessible
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', data.method + ' ' + data.path + ' - status ' + (data.responseStatus || 'onbekend'));
 
     var time = new Date(data.timestamp).toLocaleTimeString('nl-NL');
     var duration = data.durationMs != null ? data.durationMs + 'ms' : '-';
     var status = data.responseStatus || '-';
     var sClass = typeof status === 'number' ? statusClass(status) : '';
+    var sPrefix = typeof status === 'number' ? statusPrefix(status) : '';
 
     row.innerHTML =
       '<span class="request-time">' + escapeHtml(time) + '</span>' +
       '<span class="method method-' + escapeHtml(data.method) + '">' + escapeHtml(data.method) + '</span>' +
       '<span class="request-path" title="' + escapeHtml(data.url) + '">' + escapeHtml(data.path) + '</span>' +
-      '<span class="request-status ' + sClass + '">' + escapeHtml(String(status)) + '</span>' +
+      '<span class="request-status ' + sClass + '">' + sPrefix + escapeHtml(String(status)) + '</span>' +
       '<span class="request-duration">' + escapeHtml(duration) + '</span>';
 
     row.addEventListener('click', function () { showRequestDetail(data); });
+    // E7 fix: keyboard activation
+    row.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        showRequestDetail(data);
+      }
+    });
     requestLog.appendChild(row);
     requestLog.scrollTop = requestLog.scrollHeight;
   }
@@ -131,30 +156,74 @@
     var reqBody = formatBody(data.requestBody);
     var resBody = formatBody(data.responseBody);
 
+    var tabs = [
+      { id: 'response', label: 'Response', content: resBody },
+      { id: 'reqHeaders', label: 'Req Headers', content: headers },
+      { id: 'resHeaders', label: 'Res Headers', content: respHeaders },
+      { id: 'reqBody', label: 'Req Body', content: reqBody },
+    ];
+
+    // E3 fix: proper ARIA tabs pattern
+    var tablistHtml = '<div class="tabs" role="tablist" aria-label="Request details">';
+    tabs.forEach(function (t, i) {
+      var selected = i === 0;
+      tablistHtml += '<button class="tab' + (selected ? ' active' : '') + '" role="tab" ' +
+        'aria-selected="' + selected + '" ' +
+        'aria-controls="tab-' + t.id + '" ' +
+        'id="tab-' + t.id + '-tab" ' +
+        'data-tab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
+    });
+    tablistHtml += '</div>';
+
+    var panelsHtml = '';
+    tabs.forEach(function (t, i) {
+      panelsHtml += '<div class="tab-content" role="tabpanel" id="tab-' + t.id + '" ' +
+        'aria-labelledby="tab-' + t.id + '-tab"' +
+        (i > 0 ? ' style="display:none"' : '') +
+        '><pre>' + escapeHtml(t.content) + '</pre></div>';
+    });
+
     detailPanel.innerHTML =
       '<div class="detail-header">' + escapeHtml(data.method) + ' ' + escapeHtml(data.url) + '</div>' +
-      '<div class="tabs">' +
-        '<button class="tab active" data-tab="response">Response</button>' +
-        '<button class="tab" data-tab="reqHeaders">Req Headers</button>' +
-        '<button class="tab" data-tab="resHeaders">Res Headers</button>' +
-        '<button class="tab" data-tab="reqBody">Req Body</button>' +
-      '</div>' +
-      '<div class="tab-content" id="tab-response"><pre>' + escapeHtml(resBody) + '</pre></div>' +
-      '<div class="tab-content" id="tab-reqHeaders" style="display:none"><pre>' + escapeHtml(headers) + '</pre></div>' +
-      '<div class="tab-content" id="tab-resHeaders" style="display:none"><pre>' + escapeHtml(respHeaders) + '</pre></div>' +
-      '<div class="tab-content" id="tab-reqBody" style="display:none"><pre>' + escapeHtml(reqBody) + '</pre></div>';
+      tablistHtml + panelsHtml;
 
-    detailPanel.querySelectorAll('.tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        detailPanel.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
-        detailPanel.querySelectorAll('.tab-content').forEach(function (c) { c.style.display = 'none'; });
-        tab.classList.add('active');
-        var target = document.getElementById('tab-' + tab.getAttribute('data-tab'));
-        if (target) target.style.display = '';
+    // Tab switching with ARIA updates
+    detailPanel.querySelectorAll('[role="tab"]').forEach(function (tab) {
+      tab.addEventListener('click', function () { activateTab(tab); });
+      // Arrow key navigation per WAI-ARIA tabs pattern
+      tab.addEventListener('keydown', function (e) {
+        var allTabs = Array.from(detailPanel.querySelectorAll('[role="tab"]'));
+        var idx = allTabs.indexOf(tab);
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          var next = allTabs[(idx + 1) % allTabs.length];
+          next.focus();
+          activateTab(next);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          var prev = allTabs[(idx - 1 + allTabs.length) % allTabs.length];
+          prev.focus();
+          activateTab(prev);
+        }
       });
     });
 
     detailPanel.style.display = '';
+  }
+
+  function activateTab(tab) {
+    if (!detailPanel) return;
+    detailPanel.querySelectorAll('[role="tab"]').forEach(function (t) {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+      t.setAttribute('tabindex', '-1');
+    });
+    detailPanel.querySelectorAll('[role="tabpanel"]').forEach(function (c) { c.style.display = 'none'; });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    tab.setAttribute('tabindex', '0');
+    var target = document.getElementById('tab-' + tab.getAttribute('data-tab'));
+    if (target) target.style.display = '';
   }
 
   function formatBody(body) {
@@ -284,6 +353,70 @@
     });
   }
 
+  // Extraction form (moved from inline script in pages-extract.ts)
+  var extractForm = document.getElementById('extractForm');
+  if (extractForm) {
+    var extractStartBtn = document.getElementById('startExtractBtn');
+    var extractStopBtn = document.getElementById('stopExtractBtn');
+    var extractResults = document.getElementById('extractResults');
+    var extractLog = document.getElementById('extractLog');
+    var extractProgressEl = document.getElementById('extractProgress');
+    var extractTotalEl = document.getElementById('extractTotal');
+
+    extractForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var checked = extractForm.querySelectorAll('input[name="endpoint"]:checked');
+      var endpoints = [];
+      checked.forEach(function (cb) { endpoints.push(cb.value); });
+      if (endpoints.length === 0) { alert('Selecteer minstens 1 endpoint'); return; }
+
+      extractStartBtn.disabled = true;
+      extractStopBtn.disabled = false;
+      extractResults.style.display = '';
+      extractLog.innerHTML = '';
+      extractTotalEl.textContent = endpoints.length;
+
+      fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: parseInt(extractForm.querySelector('[name=sessionId]').value),
+          baseUrl: extractForm.querySelector('[name=baseUrl]').value,
+          endpoints: endpoints,
+          delayMs: parseInt(document.getElementById('delayMs').value),
+          jitterPercent: parseInt(document.getElementById('jitterPercent').value),
+          maxErrorRate: parseInt(document.getElementById('maxErrorRate').value),
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        extractProgressEl.textContent = data.completed;
+        data.results.forEach(function (r) {
+          var row = document.createElement('div');
+          row.className = 'request-row';
+          // M-2 fix: use escapeHtml on all data values
+          row.innerHTML = '<span class="request-time">' + escapeHtml(r.durationMs + 'ms') + '</span>' +
+            '<span class="method method-GET">GET</span>' +
+            '<span class="request-path">' + escapeHtml(r.endpoint) + '</span>' +
+            '<span class="request-status ' + (r.status >= 200 && r.status < 300 ? 'status-2xx' : 'status-5xx') + '">' + escapeHtml(String(r.status)) + '</span>';
+          extractLog.appendChild(row);
+        });
+        extractStartBtn.disabled = false;
+        extractStopBtn.disabled = true;
+      })
+      .catch(function (err) {
+        alert('Fout: ' + err.message);
+        extractStartBtn.disabled = false;
+        extractStopBtn.disabled = true;
+      });
+    });
+
+    extractStopBtn.addEventListener('click', function () {
+      fetch('/api/extract/stop', { method: 'POST' });
+      extractStopBtn.disabled = true;
+    });
+  }
+
   // HTML escaping
   function escapeHtml(str) {
     if (str == null) return '';
@@ -317,6 +450,51 @@
       }
     });
   });
+
+  // Sidebar toggle (moved from inline script in layout.ts)
+  var panel = document.getElementById('sidebarPanel');
+  var bar = document.querySelector('.activity-bar');
+  var overlay = document.getElementById('mobileOverlay');
+
+  if (panel && bar && overlay) {
+    var isMobile = function () { return window.innerWidth <= 600; };
+    var stored = localStorage.getItem('sidebarOpen');
+    if (stored === 'false' && !isMobile()) panel.classList.remove('open');
+
+    function closeMobile() {
+      panel.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    bar.addEventListener('click', function (e) {
+      var link = e.target.closest('a');
+      if (!link) return;
+      if (link.classList.contains('active')) {
+        e.preventDefault();
+        if (isMobile()) {
+          panel.classList.toggle('mobile-open');
+          overlay.classList.toggle('active');
+          overlay.setAttribute('aria-hidden', String(!overlay.classList.contains('active')));
+        } else {
+          panel.classList.toggle('open');
+          localStorage.setItem('sidebarOpen', panel.classList.contains('open'));
+        }
+      }
+    });
+
+    overlay.addEventListener('click', closeMobile);
+    // L4 fix: close mobile overlay with Escape key
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('mobile-open')) {
+        closeMobile();
+      }
+    });
+
+    panel.querySelectorAll('.panel-nav a').forEach(function (a) {
+      a.addEventListener('click', function () { if (isMobile()) closeMobile(); });
+    });
+  }
 
   // Connect on load
   connect();

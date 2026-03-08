@@ -15,21 +15,21 @@ function buildObserveBody(port: number): string {
       <div class="form-row">
         <div class="form-group">
           <label for="sessionName">Naam</label>
-          <input type="text" id="sessionName" placeholder="Mijn observatie" required>
+          <input type="text" id="sessionName" name="sessionName" placeholder="Mijn observatie" required>
         </div>
         <div class="form-group">
           <label for="targetUrl">Doel-URL</label>
-          <input type="url" id="targetUrl" placeholder="https://example.com" required>
+          <input type="url" id="targetUrl" name="targetUrl" placeholder="https://example.com" autocomplete="url" required>
         </div>
         <div class="form-group">
           <label for="apiFilter">API filter</label>
-          <input type="text" id="apiFilter" value="/api/" placeholder="/api/">
+          <input type="text" id="apiFilter" name="apiFilter" value="/api/" placeholder="/api/">
         </div>
       </div>
       <div class="flex gap-8">
         <button type="submit" class="btn btn-primary" id="startSessionBtn">Sessie starten</button>
         <button type="button" class="btn btn-danger" id="stopSessionBtn" disabled>Stoppen</button>
-        <span class="connection-indicator"><span class="connection-dot"></span> <span id="connectionLabel">Niet verbonden</span></span>
+        <span class="connection-indicator" aria-live="polite"><span class="connection-dot"></span> <span id="connectionLabel">Niet verbonden</span></span>
       </div>
     </form>
   </div>
@@ -43,7 +43,7 @@ function buildObserveBody(port: number): string {
         <span class="badge badge-live" id="screencastBadge" style="display:none">LIVE</span>
       </div>
       <div class="screencast-container">
-        <canvas id="screencastCanvas" width="1280" height="720"></canvas>
+        <canvas id="screencastCanvas" width="1280" height="720" role="img" aria-label="Live weergave van de geobserveerde browsersessie">Uw browser ondersteunt geen canvas.</canvas>
         <div class="screencast-overlay" id="screencastOverlay">Wacht op browser...</div>
       </div>
     </div>
@@ -53,9 +53,9 @@ function buildObserveBody(port: number): string {
     <div class="card">
       <div class="card-header flex-between">
         <span>Requests</span>
-        <span class="text-dim"><span id="requestCount">0</span> vastgelegd</span>
+        <span class="text-dim"><span id="requestCount" aria-live="polite">0</span> vastgelegd</span>
       </div>
-      <div class="request-log" id="requestLog"></div>
+      <div class="request-log" id="requestLog" role="log" aria-live="polite" aria-relevant="additions"></div>
     </div>
 
     <div class="detail-panel" id="detailPanel" style="display:none"></div>
