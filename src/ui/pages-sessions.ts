@@ -27,6 +27,12 @@ function buildSessionsBody(sessions: Session[]): string {
           <input type="text" id="apiFilter" name="apiFilter" value="/api/" placeholder="/api/">
         </div>
       </div>
+      <div class="flex gap-8 mb-8">
+        <label class="checkbox-label">
+          <input type="checkbox" id="captureAuthHeaders" name="captureAuthHeaders">
+          Auth headers bewaren (Bearer tokens encrypted opslaan)
+        </label>
+      </div>
       <div class="flex gap-8">
         <button type="submit" class="btn btn-primary" id="startSessionBtn">Sessie starten</button>
         <button type="button" class="btn btn-danger" id="stopSessionBtn" disabled>Stoppen</button>

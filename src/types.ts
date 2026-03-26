@@ -13,6 +13,7 @@ export interface Session {
   startedAt: string;
   finishedAt: string | null;
   status: SessionStatus;
+  captureAuthHeaders: boolean;
 }
 
 /** Database entity: captured HTTP request/response */
@@ -129,4 +130,5 @@ export interface SessionConfig {
   name: string;
   targetUrl: string;
   apiFilter: string;
+  captureAuthHeaders: boolean;
 }

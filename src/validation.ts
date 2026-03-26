@@ -18,6 +18,7 @@ export const sessionConfigSchema = z.object({
   name: z.string().min(1).max(200).trim(),
   targetUrl: urlSchema,
   apiFilter: z.string().min(1).max(500).default('/api/'),
+  captureAuthHeaders: z.boolean().default(false),
 });
 
 /** Schema for HAR file import — filePath restricted to safe extensions */

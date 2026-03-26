@@ -15,7 +15,10 @@ import type { WsMessage } from './types.js';
 
 const PORT = portSchema.parse(Number(process.env.PORT) || 3300);
 const HOST = '127.0.0.1';
-const ALLOWED_ORIGIN = `http://${HOST}:${PORT}`;
+const ALLOWED_ORIGINS = new Set([
+  `http://${HOST}:${PORT}`,
+  `http://localhost:${PORT}`,
+]);
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const PUBLIC_DIR = resolve(join(__dirname, 'ui', 'public'));
@@ -69,7 +72,7 @@ function isOriginAllowed(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   // No origin header = same-origin request (not cross-origin)
   if (!origin) return true;
-  return origin === ALLOWED_ORIGIN;
+  return ALLOWED_ORIGINS.has(origin);
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -151,7 +154,7 @@ const wss = new WebSocketServer({
   verifyClient: ({ origin }: { origin: string | undefined }) => {
     // Allow connections without origin (non-browser clients) and from our own origin
     if (!origin) return true;
-    return origin === ALLOWED_ORIGIN;
+    return ALLOWED_ORIGINS.has(origin);
   },
 });
 wss.on('connection', (ws: WebSocket) => {

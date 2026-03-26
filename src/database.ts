@@ -72,9 +72,20 @@ CREATE TABLE IF NOT EXISTS specs (
   generated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS auth_headers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES sessions(id),
+  name TEXT NOT NULL,
+  value TEXT NOT NULL,
+  domain TEXT NOT NULL,
+  captured_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(session_id, name, domain)
+);
+
 CREATE INDEX IF NOT EXISTS idx_requests_session ON requests(session_id);
 CREATE INDEX IF NOT EXISTS idx_cookies_session ON cookies(session_id);
 CREATE INDEX IF NOT EXISTS idx_endpoints_session ON endpoints(session_id);
+CREATE INDEX IF NOT EXISTS idx_auth_headers_session ON auth_headers(session_id);
 `;
 
 /** Open database with WAL mode, create schema if needed */
@@ -84,7 +95,17 @@ export function initDatabase(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA_SQL);
+  runMigrations(db);
   return db;
+}
+
+/** Safe migrations for existing databases */
+function runMigrations(db: Database.Database): void {
+  const columns = db.pragma('table_info(sessions)') as Array<{ name: string }>;
+  const hasColumn = columns.some((c) => c.name === 'capture_auth_headers');
+  if (!hasColumn) {
+    db.exec('ALTER TABLE sessions ADD COLUMN capture_auth_headers INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 /** Open read-only database connection */
@@ -98,12 +119,13 @@ export function createSession(
   db: Database.Database,
   name: string,
   targetUrl: string,
-  source: 'live' | 'har' = 'live'
+  source: 'live' | 'har' = 'live',
+  captureAuthHeaders = false,
 ): Session {
   const stmt = db.prepare(
-    'INSERT INTO sessions (name, target_url, source) VALUES (?, ?, ?)'
+    'INSERT INTO sessions (name, target_url, source, capture_auth_headers) VALUES (?, ?, ?, ?)'
   );
-  const result = stmt.run(name, targetUrl, source);
+  const result = stmt.run(name, targetUrl, source, captureAuthHeaders ? 1 : 0);
   return getSession(db, Number(result.lastInsertRowid))!;
 }
 
@@ -126,6 +148,7 @@ export function finishSession(db: Database.Database, id: number, status: 'comple
 export function deleteSession(db: Database.Database, id: number): void {
   db.prepare('DELETE FROM specs WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM endpoints WHERE session_id = ?').run(id);
+  db.prepare('DELETE FROM auth_headers WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM cookies WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM requests WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
@@ -164,6 +187,34 @@ export function getRequestCount(db: Database.Database, sessionId: number): numbe
     'SELECT COUNT(*) as cnt FROM requests WHERE session_id = ?'
   ).get(sessionId) as { cnt: number };
   return row.cnt;
+}
+
+// -- Auth header queries --
+
+const UPSERT_AUTH_HEADER_SQL = `INSERT INTO auth_headers
+  (session_id, name, value, domain)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(session_id, name, domain) DO UPDATE SET value = excluded.value, captured_at = datetime('now')`;
+
+export function upsertAuthHeader(
+  db: Database.Database,
+  sessionId: number,
+  name: string,
+  encryptedValue: string,
+  domain: string,
+): void {
+  db.prepare(UPSERT_AUTH_HEADER_SQL).run(sessionId, name, encryptedValue, domain);
+}
+
+export function getAuthHeadersBySession(
+  db: Database.Database,
+  sessionId: number,
+  domain: string,
+): Array<{ name: string; value: string }> {
+  const escapedDomain = domain.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  return db.prepare(
+    "SELECT name, value FROM auth_headers WHERE session_id = ? AND domain LIKE ? ESCAPE '\\'"
+  ).all(sessionId, `%${escapedDomain}`) as Array<{ name: string; value: string }>;
 }
 
 // -- Endpoint queries --
@@ -214,6 +265,7 @@ function mapSession(row: Record<string, unknown>): Session {
     startedAt: row.started_at as string,
     finishedAt: (row.finished_at as string) || null,
     status: row.status as Session['status'],
+    captureAuthHeaders: (row.capture_auth_headers as number) === 1,
   };
 }
 

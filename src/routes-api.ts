@@ -160,12 +160,13 @@ async function handleCreateSession(req: IncomingMessage, res: ServerResponse, ct
   const config = sessionConfigSchema.parse(body);
   if (hasBrowserSession()) { ctx.sendError(res, 409, 'A browser session is already active'); return true; }
 
-  const session = createSession(ctx.db, config.name, config.targetUrl, 'live');
+  const session = createSession(ctx.db, config.name, config.targetUrl, 'live', config.captureAuthHeaders);
   ctx.setActiveSessionId(session.id);
   const bs = await startBrowserSession(config.targetUrl);
 
   attachInterceptor(bs.page, ctx.db, session.id, config.apiFilter, (event: RequestEvent) =>
     ctx.broadcast({ type: 'request', data: event }),
+    config.captureAuthHeaders,
   );
 
   startScreencast(bs.page, ctx.broadcast).catch((err: unknown) =>

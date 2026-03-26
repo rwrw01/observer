@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import type { BrowserContext } from 'playwright';
 import type Database from 'better-sqlite3';
 
+import { getAuthHeadersBySession } from './database.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PASSPHRASE_FILE = join(__dirname, '..', 'data', '.cookie-passphrase');
 
@@ -131,6 +133,22 @@ export function getCookieHeader(db: Database.Database, sessionId: number, domain
   return validCookies
     .map((r) => `${r.name}=${decryptValue(r.value)}`)
     .join('; ');
+}
+
+/** Get decrypted auth headers for a session, as a key-value record */
+export function getAuthHeaders(
+  db: Database.Database,
+  sessionId: number,
+  domain: string,
+): Record<string, string> | null {
+  const rows = getAuthHeadersBySession(db, sessionId, domain);
+  if (rows.length === 0) return null;
+
+  const headers: Record<string, string> = {};
+  for (const row of rows) {
+    headers[row.name] = decryptValue(row.value);
+  }
+  return headers;
 }
 
 /** Check if any cookies for a session are expired */

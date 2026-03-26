@@ -278,6 +278,7 @@
       var name = document.getElementById('sessionName');
       var url = document.getElementById('targetUrl');
       var filter = document.getElementById('apiFilter');
+      var authCheckbox = document.getElementById('captureAuthHeaders');
       if (!name || !url) return;
 
       startBtn.disabled = true;
@@ -287,7 +288,8 @@
         body: JSON.stringify({
           name: name.value || 'Nieuwe sessie',
           targetUrl: url.value,
-          apiFilter: (filter && filter.value) || '/api/'
+          apiFilter: (filter && filter.value) || '/api/',
+          captureAuthHeaders: authCheckbox ? authCheckbox.checked : false
         })
       })
       .then(function (r) {

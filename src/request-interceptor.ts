@@ -1,16 +1,26 @@
 import type { Page, Request, Response } from 'playwright';
 import type Database from 'better-sqlite3';
 
-import { insertRequest } from './database.js';
+import { insertRequest, upsertAuthHeader } from './database.js';
+import { encryptValue } from './cookie-extractor.js';
 import type { CapturedRequest, RequestEvent } from './types.js';
 
 const MAX_REQUEST_BODY = 10_240;   // 10 KB
 const MAX_RESPONSE_BODY = 51_200;  // 50 KB
 
-const SENSITIVE_HEADERS = new Set([
-  'authorization', 'cookie', 'set-cookie', 'x-api-key',
-  'x-csrf-token', 'proxy-authorization',
+/** Headers that are always redacted (session/cookie data) */
+const ALWAYS_REDACTED = new Set([
+  'cookie', 'set-cookie',
 ]);
+
+/** Auth headers that can be captured with opt-in */
+const AUTH_HEADERS = new Set([
+  'authorization', 'x-api-key', 'proxy-authorization',
+  'b2cauthorization', 'x-csrf-token',
+]);
+
+/** All sensitive headers (union of both sets) */
+const SENSITIVE_HEADERS = new Set([...ALWAYS_REDACTED, ...AUTH_HEADERS]);
 
 /** Redact sensitive header values for UI display */
 function redactHeaders(
@@ -55,6 +65,10 @@ const pendingRequests = new Map<string, { startTime: number; request: Request }>
 /**
  * Attach request/response interceptors to a Playwright page.
  * Captured requests are stored in SQLite and broadcast via onCapture callback.
+ *
+ * @param captureAuthHeaders When true, auth headers (authorization, b2cauthorization, etc.)
+ *   are encrypted and stored in the auth_headers table instead of being redacted.
+ *   Cookie/set-cookie headers are always redacted regardless of this flag.
  */
 export function attachInterceptor(
   page: Page,
@@ -62,6 +76,7 @@ export function attachInterceptor(
   sessionId: number,
   apiFilter: string,
   onCapture: (event: RequestEvent) => void,
+  captureAuthHeaders = false,
 ): void {
   page.on('request', (request: Request) => {
     const url = request.url();
@@ -120,6 +135,17 @@ export function attachInterceptor(
       isGraphql: isGraphql ? 1 : 0,
       graphqlOperation: operation,
     };
+
+    // Store auth headers encrypted when opt-in is enabled
+    if (captureAuthHeaders) {
+      const reqHeaders = request.headers();
+      const domain = parsedUrl.hostname;
+      for (const [key, value] of Object.entries(reqHeaders)) {
+        if (AUTH_HEADERS.has(key.toLowerCase()) && value) {
+          upsertAuthHeader(db, sessionId, key.toLowerCase(), encryptValue(value), domain);
+        }
+      }
+    }
 
     const id = insertRequest(db, captured);
 
